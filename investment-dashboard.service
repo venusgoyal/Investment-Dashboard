@@ -1,0 +1,34 @@
+[Unit]
+Description=Investment Dashboard Streamlit Application
+After=network-online.target docker.service
+Wants=network-online.target
+Requires=docker.service
+
+[Service]
+Type=simple
+User=ubuntu
+WorkingDirectory=/opt/Investment-Dashboard
+EnvironmentFile=/opt/Investment-Dashboard/.env
+Restart=always
+RestartSec=10
+TimeoutStartSec=60
+StandardOutput=journal
+StandardError=journal
+
+# Stop old container if it exists
+ExecStartPre=/bin/bash -c 'docker stop investment-dashboard || true'
+ExecStartPre=/bin/bash -c 'docker rm investment-dashboard || true'
+
+# Start container
+ExecStart=/usr/bin/docker run --name investment-dashboard \
+  --env-file /opt/Investment-Dashboard/.env \
+  -p 8501:8501 \
+  --restart unless-stopped \
+  --log-driver journald \
+  investment-dashboard:latest
+
+# Stop container
+ExecStop=/usr/bin/docker stop investment-dashboard
+
+[Install]
+WantedBy=multi-user.target

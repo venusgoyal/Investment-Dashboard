@@ -1,0 +1,124 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+pip-wheel-metadata/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Virtual Environments
+venv/
+ENV/
+env/
+.venv
+env.bak/
+venv.bak/
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+.project
+.pydevproject
+.settings/
+*.sublime-project
+*.sublime-workspace
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+.hypothesis/
+
+# AWS/Credentials
+.aws/
+*.pem
+*.key
+*.pub
+aws_credentials.txt
+.env
+.env.local
+.env*.local
+credentials
+config
+
+# Terraform
+.terraform/
+terraform.tfstate*
+*.tfstate
+*.tfstate.*.backup
+.terraform.lock.hcl
+crash.log
+crash.*.log
+override.tf.json
+override.tf
+*.tfvars
+
+# Streamlit
+.streamlit/secrets.toml
+.streamlit/downloads/
+
+# Database
+*.db
+*.sqlite
+*.sqlite3
+
+# Logs
+*.log
+logs/
+
+# OS
+.DS_Store
+Thumbs.db
+*.swp
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+
+# Application specific
+*.bak
+*.backup
+test_data/
+sample_data/
+exports/
+
+# Sensitive information
+credentials.json
+secrets.json
+config_secret.json
+
+# Cache
+.cache/
+*.cache
+
+# Dependencies
+node_modules/
+package-lock.json
+
+# Media
+uploads/
+downloads/
+assets/generated/
