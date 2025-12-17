@@ -7,12 +7,50 @@ import uuid
 from datetime import datetime
 from typing import List, Dict, Optional
 import logging
+import streamlit as st
 
 logger = logging.getLogger(__name__)
 
+# Track if tables have been created to avoid running on every initialization
+_tables_created = {
+    'investment': False,
+    'users': False
+}
+
 class InvestmentService:
-    def __init__(self, host="localhost", port=3306, user="root", password="password", database="investment_db"):
-        """Initialize MySQL service"""
+    def __init__(self, host=None, port=None, user=None, password=None, database=None):
+        """Initialize MySQL service with credentials from secrets.toml or parameters"""
+        # Use Streamlit secrets if available, otherwise use provided parameters
+        if host is None:
+            try:
+                host = st.secrets["mysql"]["host"]
+            except (KeyError, AttributeError):
+                host = "localhost"
+        
+        if port is None:
+            try:
+                port = st.secrets["mysql"]["port"]
+            except (KeyError, AttributeError):
+                port = 3306
+        
+        if user is None:
+            try:
+                user = st.secrets["mysql"]["user"]
+            except (KeyError, AttributeError):
+                user = "root"
+        
+        if password is None:
+            try:
+                password = st.secrets["mysql"]["password"]
+            except (KeyError, AttributeError):
+                password = "password"
+        
+        if database is None:
+            try:
+                database = st.secrets["mysql"]["database"]
+            except (KeyError, AttributeError):
+                database = "investment_db"
+        
         self.config = {
             "host": host,
             "port": port,
@@ -36,7 +74,14 @@ class InvestmentService:
             raise
     
     def create_table(self):
-        """Create investment table if it doesn't exist"""
+        """Create investment table if it doesn't exist (only once per session)"""
+        global _tables_created
+        
+        # Skip if already created in this session
+        if _tables_created['investment']:
+            logger.debug("Investment table already created this session")
+            return
+        
         try:
             cursor = self.connection.cursor()
             create_table_query = """
@@ -65,6 +110,7 @@ class InvestmentService:
                     logger.warning(f"Could not add comments column: {e}")
             
             cursor.close()
+            _tables_created['investment'] = True
             logger.info("Investment table created or already exists")
         except Error as e:
             logger.error(f"Error creating table: {e}")
@@ -322,8 +368,32 @@ import hashlib
 class AuthenticationService:
     """Service for user authentication and management"""
     
-    def __init__(self, config: dict):
-        """Initialize authentication service"""
+    def __init__(self, config: dict = None):
+        """Initialize authentication service
+        
+        Args:
+            config: Database config dict (optional). If not provided, uses secrets.toml
+        """
+        if config is None:
+            # Load from secrets.toml
+            try:
+                config = {
+                    "host": st.secrets["mysql"]["host"],
+                    "port": st.secrets["mysql"]["port"],
+                    "user": st.secrets["mysql"]["user"],
+                    "password": st.secrets["mysql"]["password"],
+                    "database": st.secrets["mysql"]["database"]
+                }
+            except (KeyError, AttributeError):
+                # Fallback to defaults if secrets not available
+                config = {
+                    "host": "localhost",
+                    "port": 3306,
+                    "user": "root",
+                    "password": "password",
+                    "database": "investment_db"
+                }
+        
         self.config = config
         self.connection = None
         self.connect()
@@ -341,7 +411,14 @@ class AuthenticationService:
             raise
     
     def create_users_table(self):
-        """Create users table if it doesn't exist"""
+        """Create users table if it doesn't exist (only once per session)"""
+        global _tables_created
+        
+        # Skip if already created in this session
+        if _tables_created['users']:
+            logger.debug("Users table already created this session")
+            return
+        
         try:
             cursor = self.connection.cursor()
             create_table_query = """
@@ -363,6 +440,7 @@ class AuthenticationService:
             cursor.execute(create_table_query)
             self.connection.commit()
             cursor.close()
+            _tables_created['users'] = True
             logger.info("Users table created or already exists")
         except Error as e:
             logger.error(f"Error creating users table: {e}")
