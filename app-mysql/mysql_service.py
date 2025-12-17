@@ -25,9 +25,10 @@ class InvestmentService:
         self.create_table()
     
     def connect(self):
-        """Establish MySQL connection"""
+        """Establish MySQL connection - reuse for efficiency"""
         try:
             self.connection = mysql.connector.connect(**self.config)
+            self.connection.autocommit = True
             if self.connection.is_connected():
                 logger.info("MySQL connection successful")
         except Error as e:
@@ -311,3 +312,288 @@ def calculate_return_percentage(current_value: float, investment_amount: float) 
         return 0.0
     
     return round(((current_value - investment_amount) / investment_amount) * 100, 2)
+
+
+# ==================== USER AUTHENTICATION FUNCTIONS ====================
+
+import hashlib
+
+
+class AuthenticationService:
+    """Service for user authentication and management"""
+    
+    def __init__(self, config: dict):
+        """Initialize authentication service"""
+        self.config = config
+        self.connection = None
+        self.connect()
+        self.create_users_table()
+    
+    def connect(self):
+        """Establish MySQL connection - reuse for efficiency"""
+        try:
+            self.connection = mysql.connector.connect(**self.config)
+            self.connection.autocommit = True
+            if self.connection.is_connected():
+                logger.info("MySQL connection successful for auth service")
+        except Error as e:
+            logger.error(f"Error connecting to MySQL: {e}")
+            raise
+    
+    def create_users_table(self):
+        """Create users table if it doesn't exist"""
+        try:
+            cursor = self.connection.cursor()
+            create_table_query = """
+            CREATE TABLE IF NOT EXISTS users (
+                user_id VARCHAR(36) PRIMARY KEY,
+                username VARCHAR(50) UNIQUE NOT NULL,
+                email VARCHAR(100) UNIQUE NOT NULL,
+                password_hash VARCHAR(255) NOT NULL,
+                full_name VARCHAR(100),
+                role VARCHAR(20) NOT NULL DEFAULT 'user',
+                is_active BOOLEAN DEFAULT TRUE,
+                created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP NOT NULL DEFAULT '0000-00-00 00:00:00',
+                KEY idx_username (username),
+                KEY idx_email (email),
+                KEY idx_role (role)
+            ) ENGINE=InnoDB DEFAULT CHARSET=latin1
+            """
+            cursor.execute(create_table_query)
+            self.connection.commit()
+            cursor.close()
+            logger.info("Users table created or already exists")
+        except Error as e:
+            logger.error(f"Error creating users table: {e}")
+            raise
+    
+    @staticmethod
+    def hash_password(password: str) -> str:
+        """Hash password using SHA-256"""
+        return hashlib.sha256(password.encode()).hexdigest()
+    
+    def register_user(self, username: str, email: str, password: str, full_name: str = "", role: str = "user") -> Dict:
+        """
+        Register a new user
+        New users are created with is_active=FALSE and must be activated by admin
+        
+        Args:
+            username: Username
+            email: Email address
+            password: Password (will be hashed)
+            full_name: Full name
+            role: User role ('user' or 'admin')
+            
+        Returns:
+            User data with user_id
+        """
+        try:
+            user_id = str(uuid.uuid4())
+            password_hash = self.hash_password(password)
+            
+            cursor = self.connection.cursor()
+            insert_query = """
+            INSERT INTO users 
+            (user_id, username, email, password_hash, full_name, role, is_active)
+            VALUES (%s, %s, %s, %s, %s, %s, FALSE)
+            """
+            cursor.execute(insert_query, (user_id, username, email, password_hash, full_name, role))
+            self.connection.commit()
+            cursor.close()
+            
+            logger.info(f"User registered (inactive): {username}")
+            return {
+                'user_id': user_id,
+                'username': username,
+                'email': email,
+                'full_name': full_name,
+                'role': role,
+                'is_active': False
+            }
+        except Error as e:
+            logger.error(f"Error registering user: {e}")
+            raise
+    
+    def authenticate_user(self, username: str, password: str) -> Optional[Dict]:
+        """
+        Authenticate user with username and password
+        Only allows active users to login
+        
+        Args:
+            username: Username
+            password: Password
+            
+        Returns:
+            User data if authenticated, None otherwise
+        """
+        try:
+            cursor = self.connection.cursor(dictionary=True)
+            select_query = "SELECT * FROM users WHERE username = %s"
+            cursor.execute(select_query, (username,))
+            user = cursor.fetchone()
+            cursor.close()
+            
+            if user:
+                password_hash = self.hash_password(password)
+                if user['password_hash'] == password_hash:
+                    # Check if user is active
+                    if user['is_active']:
+                        logger.info(f"User authenticated: {username}")
+                        return user
+                    else:
+                        logger.warning(f"Inactive user tried to login: {username}")
+                        return None
+            
+            return None
+        except Error as e:
+            logger.error(f"Error authenticating user: {e}")
+            raise
+    
+    def check_user_status(self, username: str, password: str) -> Dict:
+        """
+        Check user status (for login feedback)
+        
+        Args:
+            username: Username
+            password: Password
+            
+        Returns:
+            Dict with 'exists', 'password_correct', and 'is_active' status
+        """
+        try:
+            cursor = self.connection.cursor(dictionary=True)
+            select_query = "SELECT * FROM users WHERE username = %s"
+            cursor.execute(select_query, (username,))
+            user = cursor.fetchone()
+            cursor.close()
+            
+            if not user:
+                return {'exists': False, 'password_correct': False, 'is_active': False}
+            
+            password_hash = self.hash_password(password)
+            password_correct = user['password_hash'] == password_hash
+            
+            return {
+                'exists': True,
+                'password_correct': password_correct,
+                'is_active': user['is_active'],
+                'user': user
+            }
+        except Error as e:
+            logger.error(f"Error checking user status: {e}")
+            raise
+    
+    def get_user_by_id(self, user_id: str) -> Optional[Dict]:
+        """Get user by ID"""
+        try:
+            cursor = self.connection.cursor(dictionary=True)
+            select_query = "SELECT * FROM users WHERE user_id = %s"
+            cursor.execute(select_query, (user_id,))
+            user = cursor.fetchone()
+            cursor.close()
+            return user
+        except Error as e:
+            logger.error(f"Error getting user: {e}")
+            raise
+    
+    def get_user_by_username(self, username: str) -> Optional[Dict]:
+        """Get user by username"""
+        try:
+            cursor = self.connection.cursor(dictionary=True)
+            select_query = "SELECT * FROM users WHERE username = %s"
+            cursor.execute(select_query, (username,))
+            user = cursor.fetchone()
+            cursor.close()
+            return user
+        except Error as e:
+            logger.error(f"Error getting user: {e}")
+            raise
+    
+    def get_all_users(self) -> List[Dict]:
+        """Get all users"""
+        try:
+            cursor = self.connection.cursor(dictionary=True)
+            select_query = "SELECT user_id, username, email, full_name, role, is_active, created_at FROM users ORDER BY created_at DESC"
+            cursor.execute(select_query)
+            users = cursor.fetchall()
+            cursor.close()
+            return users
+        except Error as e:
+            logger.error(f"Error getting users: {e}")
+            raise
+    
+    def update_user_role(self, user_id: str, role: str) -> Optional[Dict]:
+        """Update user role"""
+        try:
+            cursor = self.connection.cursor()
+            update_query = "UPDATE users SET role = %s WHERE user_id = %s"
+            cursor.execute(update_query, (role, user_id))
+            self.connection.commit()
+            cursor.close()
+            
+            logger.info(f"User role updated: {user_id}")
+            return self.get_user_by_id(user_id)
+        except Error as e:
+            logger.error(f"Error updating user role: {e}")
+            raise
+    
+    def toggle_user_status(self, user_id: str) -> Optional[Dict]:
+        """Toggle user active status"""
+        try:
+            user = self.get_user_by_id(user_id)
+            if not user:
+                return None
+            
+            new_status = not user['is_active']
+            cursor = self.connection.cursor()
+            update_query = "UPDATE users SET is_active = %s WHERE user_id = %s"
+            cursor.execute(update_query, (new_status, user_id))
+            self.connection.commit()
+            cursor.close()
+            
+            logger.info(f"User status toggled: {user_id}")
+            return self.get_user_by_id(user_id)
+        except Error as e:
+            logger.error(f"Error toggling user status: {e}")
+            raise
+    
+    def delete_user(self, user_id: str) -> bool:
+        """Delete user"""
+        try:
+            cursor = self.connection.cursor()
+            delete_query = "DELETE FROM users WHERE user_id = %s"
+            cursor.execute(delete_query, (user_id,))
+            self.connection.commit()
+            cursor.close()
+            
+            logger.info(f"User deleted: {user_id}")
+            return True
+        except Error as e:
+            logger.error(f"Error deleting user: {e}")
+            raise
+    
+    def change_password(self, user_id: str, old_password: str, new_password: str) -> bool:
+        """Change user password"""
+        try:
+            user = self.get_user_by_id(user_id)
+            if not user:
+                return False
+            
+            old_password_hash = self.hash_password(old_password)
+            if user['password_hash'] != old_password_hash:
+                return False
+            
+            new_password_hash = self.hash_password(new_password)
+            cursor = self.connection.cursor()
+            update_query = "UPDATE users SET password_hash = %s WHERE user_id = %s"
+            cursor.execute(update_query, (new_password_hash, user_id))
+            self.connection.commit()
+            cursor.close()
+            
+            logger.info(f"Password changed for user: {user_id}")
+            return True
+        except Error as e:
+            logger.error(f"Error changing password: {e}")
+            raise
+

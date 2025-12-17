@@ -1,21 +1,51 @@
 # Investment Dashboard - MySQL Version
 
-A complete Streamlit application for managing investment portfolios using MySQL as the backend database.
+A complete Streamlit application for managing investment portfolios using MySQL as the backend database with **secure authentication and admin panel**.
+
+## ✨ New Features - Authentication System
+
+### 🔐 Secure Authentication
+- User registration with password hashing
+- Secure login system
+- Session-based authentication
+- Password change functionality
+
+### 👥 User Management (Admin Only)
+- View all users in the system
+- Promote/demote users between roles
+- Activate/deactivate user accounts
+- Delete users
+- System statistics dashboard
+
+### 🎯 Role-Based Access Control
+- **Regular User**: Manage personal investments only
+- **Admin User**: Full system access + user management
 
 ## Quick Start
 
 ```bash
-# 1. Install dependencies
+# 1. Setup secrets file
+mkdir -p .streamlit
+cat > .streamlit/secrets.toml << EOF
+[mysql]
+host = "your_mysql_host"
+port = 3306
+user = "your_mysql_user"
+password = "your_mysql_password"
+database = "your_database_name"
+EOF
+
+# 2. Install dependencies
 pip install -r requirements.txt
 
-# 2. Verify setup
-python setup_helper.py
-
-# 3. Load sample data
-python quickstart.py
-
-# 4. Run application
+# 3. Run application
 streamlit run app.py
+
+# 4. First-time setup
+# - Register account at http://localhost:8501
+# - Promote first user to admin via SQL:
+#   UPDATE users SET role = 'admin' WHERE username = 'your_username';
+# - Login and access admin panel
 ```
 
 Application will open at: **http://localhost:8501**
@@ -24,27 +54,43 @@ Application will open at: **http://localhost:8501**
 
 ### 📊 Dashboard
 - Real-time portfolio overview
-- Key metrics (Total Invested, Current Value, Total Profit/Loss, Average Return %)
-- Interactive investment list
+- Key metrics (Total Invested, Current Value, Total Profit/Loss, Overall Return)
+- Interactive investment list with comments
+- Days passed since investment
+- Current date display
 
 ### ➕ Create Investment
 - Add new investments with validation
 - Auto-calculate current value
+- Add investment comments/notes
 - Display expected profit/loss
 
 ### 👁️ View All Investments
 - Expandable investment details
 - Sortable and filterable data
 - Per-investment metrics
+- Mini charts for each investment
+- Days passed and current date tracking
 
 ### ✏️ Update Investment
 - Modify investment details
+- Update investment comments
 - Pre-populated forms
 - Real-time calculation updates
 
 ### 🗑️ Delete Investment
 - Delete with confirmation
 - Safety checks before deletion
+- Investment preview before deletion
+
+### 👨‍💼 Admin Panel (Admin Only)
+- User Management Tab: View, modify, and manage users
+- Statistics Tab: System analytics and user distribution
+
+### 👤 Profile
+- View account information
+- Change password securely
+- View account status and member since date
 
 ## Database
 
