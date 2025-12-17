@@ -20,23 +20,37 @@ from mysql_service import (
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# Local MySQL Configuration
-# MYSQL_CONFIG = {
-#     "host": "localhost",
-#     "port": 3306,
-#     "user": "root",
-#     "password": "password",
-#     "database": "investment_db"
-# }
-
-# Remote MySQL Configuration
-MYSQL_CONFIG = {
-    "host": "REMOVED",
-    "port": 3306,
-    "user": "REMOVED",
-    "password": "REMOVED",
-    "database": "REMOVED"
-}
+# MySQL Configuration from Streamlit Secrets
+# For local development: credentials are read from .streamlit/secrets.toml
+# For Streamlit Cloud: add secrets via the Streamlit Cloud console
+try:
+    MYSQL_CONFIG = {
+        "host": st.secrets["mysql"]["host"],
+        "port": st.secrets["mysql"]["port"],
+        "user": st.secrets["mysql"]["user"],
+        "password": st.secrets["mysql"]["password"],
+        "database": st.secrets["mysql"]["database"]
+    }
+except KeyError:
+    # Fallback configuration for development (if secrets not configured)
+    st.error("⚠️ MySQL credentials not found in secrets. Please configure them:")
+    st.info("""
+    **For local development:**
+    - Create `.streamlit/secrets.toml` with your MySQL credentials
+    
+    **For Streamlit Cloud:**
+    - Go to your app's advanced settings
+    - Add secrets in TOML format:
+    ```
+    [mysql]
+    host = "your_host"
+    port = 3306
+    user = "your_user"
+    password = "your_password"
+    database = "your_database"
+    ```
+    """)
+    st.stop()
 
 # Page configuration
 st.set_page_config(
