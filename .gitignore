@@ -77,7 +77,10 @@ override.tf
 
 # Streamlit
 .streamlit/secrets.toml
+.streamlit/secrets.toml.template
 .streamlit/downloads/
+secrets.toml
+secrets.toml.template
 
 # Database
 *.db
